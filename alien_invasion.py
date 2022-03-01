@@ -7,6 +7,7 @@ from bullet import Bullet
 from alien import Alien
 from game_stats import GameStats
 from button import Button
+from scoreboard import Scoreboard
 
 class AlienInvasion:
     """Overall class to manage game assets and behavior"""
@@ -16,12 +17,15 @@ class AlienInvasion:
         pygame.init()
 
         self.settings = Settings()
-        self.screen = pygame.display.set_mode((self.settings.screen_width, self.settings.screen_height))
+        #self.screen = pygame.display.set_mode((self.settings.screen_width, self.settings.screen_height))
+        self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
         pygame.display.set_caption("Alien Invasion")
 
-        #Create an instance to store game statistics
+
+        #Create an instance to store game statistics and scoreboard
         self.stats = GameStats(self)
+        self.sb = Scoreboard(self)
 
         self.ship = Ship(self) #(self) refers to the ai from Ship
         self.bullets = pygame.sprite.Group()
@@ -65,9 +69,12 @@ class AlienInvasion:
         """Start a new game when the player clicks Play"""
         button_clicked = self.play_button.rect.collidepoint(mouse_pos)
         if button_clicked and not self.stats.game_active:
+            #Reset game settings
+            self.settings.initialize_dynamic_settings()
             #Reset the game stat first
             self.stats.reset_stats()
             self.stats.game_active = True
+            self.sb.prep_score
 
             #Get rid of any remaining aliens and bullets
             self.aliens.empty()
@@ -211,11 +218,17 @@ class AlienInvasion:
         #Checking for any bullets that have hit an alien
         # IF so, get rid of bullet and alien
         collisions = pygame.sprite.groupcollide(self.bullets, self.aliens, True, True)
+
+        if collisions:
+            self.stats.score += self.settings.alien_points
+            self.sb.prep_score()
+
         if not self.aliens:
             #destroy existing bullets and create new fleet
             self.bullets.empty()
             self._create_fleet()
-        #print(len(self.bullets))
+            self.settings.increase_speed()
+
 
     def _update_screen(self):
         """Update images on the screen, and flip to the new screen."""
@@ -225,9 +238,14 @@ class AlienInvasion:
         for bullet in self.bullets.sprites():
             bullet.draw_bullet()
         self.aliens.draw(self.screen)
+
+        #Draw the score information
+        self.sb.show_score()
+
         #Draw the play button if the game is inactive
         if not self.stats.game_active: 
             self.play_button.draw_button()
+        
 
         # Make the most recently drawn screen visible.
         pygame.display.flip() #creates the illusion of smooth movement
